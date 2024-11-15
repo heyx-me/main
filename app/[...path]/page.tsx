@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import dynamic from 'next/dynamic';
 import { AppProvider } from "@/lib/app-provider";
 
-export default async function page({ params }: { params: { path: string } }) {
+export default async function page({ params }: { params: Promise<{ path: string }> }) {
     const { path } = await params
 
     const { data: app } = await supabase.from("apps").select().eq('name', path).maybeSingle()
