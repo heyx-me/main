@@ -14,7 +14,7 @@ export default async function page({ params }: { params: Promise<{ path: string 
 
     const { type, props } = app.init[0]
 
-    const Component = type && dynamic(() => import(`@/x/${type}.tsx`));
+    const Component = type && dynamic(() => import(`@/app/${type.toLowerCase()}/page.tsx`));
 
       if (!Component) {
         return <div className="h-full flex flex-col items-center justify-center">

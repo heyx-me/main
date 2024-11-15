@@ -9,10 +9,10 @@ export function ChatProvider({
 	app,
 	messages,
 	children,
-}: React.PropsWithChildren<ChatState & { app: Application }>) {
+}: React.PropsWithChildren<ChatState & { app?: Application }>) {
 	const store = useMemo(
 		() => {
-			return createChatStore(app, { messages })
+			return createChatStore({ messages }, app)
 		},
 		[app, messages],
 	);

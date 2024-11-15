@@ -5,11 +5,7 @@ import * as React from "react"
 const appContext = React.createContext<AppContext | null>(null)
 
 export function useAppContext() {
-  const context = React.useContext(appContext)
-  if (!context) {
-    throw new Error("useAppContext must be used within an AppProvider")
-  }
-  return context
+  return React.useContext(appContext) || {} as AppContext
 }
 
 export function AppProvider({ app, children }: React.PropsWithChildren<{ app: Application }>) {

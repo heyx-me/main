@@ -4,7 +4,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { create } from "zustand";
 
 export type Message = {
-	app_id: number;
+	app_id?: number | null;
 	content: {
 		text: string;
 	}[];
@@ -21,43 +21,44 @@ export type ChatMutations = {
 
 export type ChatContext = ChatState & ChatMutations;
 
-export function createChatStore(app: Application, state: ChatState) {
+export function createChatStore(state: ChatState, app?: Application) {
 	const store = create<ChatContext>((set) => {
-
 		return {
 			...state,
 			addMessage: (text: string) => {
 				const newMessage = {
-					app_id: app.id,
+					app_id: app?.id || null,
 					content: [{ text }],
 				};
 
-				send(newMessage);
-
-				// set((state) => ({
-				// 	messages: [...(state.messages || []), newMessage],
-				// }));
+				if (app) {
+					send(newMessage);
+				} else {
+					set((state) => ({
+						messages: [...(state.messages || []), newMessage],
+					}));
+				}
 			},
 			subscribeToMessages: () => {
 				return supabase
-				.channel("messages")
-				.on(
-					"postgres_changes",
-					{
-						event: "INSERT",
-						schema: "public",
-						table: "messages",
-						filter: `app_id=eq.${app.id}`,
-					},
-					(payload) => {
-						const newMessage = payload.new as Message;
-						set((state) => ({
-							messages: [...(state.messages || []), newMessage],
-						}));
-					},
-				)
-				.subscribe()
-			}
+					.channel("messages")
+					.on(
+						"postgres_changes",
+						{
+							event: "INSERT",
+							schema: "public",
+							table: "messages",
+							filter: `app_id=eq.${app?.id}`,
+						},
+						(payload) => {
+							const newMessage = payload.new as Message;
+							set((state) => ({
+								messages: [...(state.messages || []), newMessage],
+							}));
+						},
+					)
+					.subscribe();
+			},
 		};
 	});
 
