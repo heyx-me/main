@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useContext, useMemo, useState, type useReducer } from "react";
-import { createChatStore, type ChatState, type ChatContext } from "./chat";
-import { createStore, type StoreApi, useStore, type UseBoundStore } from "zustand";
 import type { Application } from "@/lib/app-provider";
+import React, { useContext, useMemo } from "react";
+import { useStore, type StoreApi, type UseBoundStore } from "zustand";
+import { createChatStore, type ChatContext, type ChatState } from "./chat";
 
 export function ChatProvider({
 	app,
@@ -24,7 +24,7 @@ export function ChatProvider({
 	);
 }
 
-export function useChatStore<T>() {
+export function useChatStore() {
 	const store = useContext(storeContext)
 	if (!store) {
 		throw new Error("useChatStore must be used within a ChatProvider");
