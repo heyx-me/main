@@ -4,10 +4,10 @@ import { SendIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
-import { useChatStore } from "./ChatProvider";
+import { useAppContext } from "@/lib/app-provider";
 
 export function ChatInput() {
-	const { addMessage } = useChatStore();
+	const { addMessage } = useAppContext();
 
 	const [text, setText] = useState("");
 

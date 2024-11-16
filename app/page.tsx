@@ -1,12 +1,16 @@
-// import { supabase } from "@/lib/supabase";
+
+import { AppProvider } from "@/lib/app-provider";
 import { Chat } from "./chat/Chat";
 
 export default async function Home() {
-	// const { data: apps } = await supabase.from("apps").select();
 
 	return (
-		<Chat messages={[{
-			content: [{ text: "Hey, world!" }],
-		}]}/>
+		<AppProvider value={{ 
+			messages: [{
+				content: [{ text: "Hey, world!" }],
+			}]
+		}}>
+			<Chat />
+		</AppProvider>
 	);
 }

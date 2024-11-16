@@ -1,24 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
-import { useChatStore } from "./ChatProvider";
 import { useAppContext } from "@/lib/app-provider";
 
 export function ChatMessages() {
-	const { app } = useAppContext();
-	const { messages, subscribeToMessages } = useChatStore();
-
-	useEffect(() => {
-		if (!app) {
-			return;
-		}
-
-		const sub = subscribeToMessages();
-
-		return () => {
-			sub.unsubscribe();
-		};
-	}, [subscribeToMessages, app]);
+	const { messages } = useAppContext({
+		subscribeToMessages: true,
+	});
 
 	return (
 		<div>
