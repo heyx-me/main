@@ -1,6 +1,6 @@
 
 import { AppProvider } from "@/lib/app-provider";
-import { Chat } from "./chat/Chat";
+import Chat from "./chat/Chat";
 
 export default async function Home() {
 

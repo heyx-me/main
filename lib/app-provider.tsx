@@ -3,7 +3,6 @@
 import * as React from "react";
 import { supabase } from "./supabase";
 import { create, useStore, type StoreApi, type UseBoundStore } from "zustand";
-import { useMemo } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 const appContext = React.createContext<UseBoundStore<StoreApi<AppState & AppActions>> | null>(null);
