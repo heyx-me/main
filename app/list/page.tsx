@@ -29,14 +29,17 @@ interface Todo {
   category: string;
 }
 
-// Add these helper functions at the top level
+// Add this type definition before the storage object
+type StorageValue = Todo[] | string;
+
+// Replace the storage object with this typed version
 const storage = {
-  get: (key: string, defaultValue: any) => {
+  get: <T extends StorageValue>(key: string, defaultValue: T): T => {
     if (typeof window === 'undefined') return defaultValue;
     const stored = localStorage.getItem(key);
     return stored ? JSON.parse(stored) : defaultValue;
   },
-  set: (key: string, value: any) => {
+  set: (key: string, value: StorageValue): void => {
     if (typeof window !== 'undefined') {
       localStorage.setItem(key, JSON.stringify(value));
     }
