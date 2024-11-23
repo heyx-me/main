@@ -1,13 +1,14 @@
 "use client"
 
-import React, { useState, useEffect, use } from 'react';
+import type React from 'react';
+import { useState, useEffect, use } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, Loader2, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useParams } from 'next/navigation';
-import { ListInfo } from '../page';
+import type { ListInfo } from '../page';
 
 const translations = {
     en: {
@@ -55,29 +56,37 @@ const ListPage = () => {
         globalLists: 'lists'
     };
 
-    const language = localStorage.getItem('language') as 'en' | 'he' || 'en';
+    const [language, setLanguage] = useState<'en' | 'he'>('en');
+    const [todos, setTodos] = useState<Todo[]>(storage.get(storageKeys.todos, []));
+    const [newTodo, setNewTodo] = useState('');
+    const [listTitle, setListTitle] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isInitializing, setIsInitializing] = useState(true);
 
+    // Add effect for language initialization
+    useEffect(() => {
+        const storedLanguage = localStorage.getItem('language') as 'en' | 'he';
+        setLanguage(storedLanguage || 'en');
+    }, []);
 
     const getListTitle = () => {
         const lists = storage.get<ListInfo[]>(storageKeys.globalLists, []);
         return lists.find(({ id }) => id === params.uuid)?.title || '';
     };
 
-    const [todos, setTodos] = useState<Todo[]>(storage.get(storageKeys.todos, []));
-    const [newTodo, setNewTodo] = useState('');
-    const [listTitle, setListTitle] = useState(getListTitle());
-    const [isLoading, setIsLoading] = useState(false);
-    const [isInitializing, setIsInitializing] = useState(true);
-
-
-    useEffect(() => {
-        setTodos(storage.get(storageKeys.todos, []));
-        setListTitle(getListTitle());
-        setIsInitializing(false);
+    // Combine initialization effects
+    // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+        useEffect(() => {
+        if (typeof window !== 'undefined') {
+            setTodos(storage.get(storageKeys.todos, []));
+            setListTitle(getListTitle());
+            setIsInitializing(false);
+        }
     }, [params.uuid]);
 
     // Update the global lists storage when title changes
-    useEffect(() => {
+    // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+        useEffect(() => {
         const lists = storage.get<ListInfo[]>(storageKeys.globalLists, []);
         const listIndex = lists.findIndex(({ id }) => id === params.uuid);
         if (listIndex === -1) return;
@@ -85,6 +94,7 @@ const ListPage = () => {
         storage.set(storageKeys.globalLists, lists);
     }, [listTitle, params.uuid]);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
     useEffect(() => storage.set(storageKeys.todos, todos), [todos, params.uuid]);
 
     const predictCategory = async (text: string, listTitle: string) => {
@@ -217,7 +227,7 @@ const ListPage = () => {
                                     }}
                                     className="flex items-center gap-2"
                                 >
-                                    <div className={`flex items-center gap-2 w-full`}>
+                                    <div className={"flex items-center gap-2 w-full"}>
                                         <Checkbox
                                             checked={todo.done}
                                             onCheckedChange={() => toggleTodo(todo.id)}
