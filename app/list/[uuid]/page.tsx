@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useParams } from "next/navigation";
 import type { ListInfo } from "../page";
+import { useToast } from "@/hooks/use-toast";
 
 const translations = {
   en: {
@@ -16,14 +17,20 @@ const translations = {
     addTodo: "Add a new item",
     add: "Add",
     listTitlePlaceholder: "List Title",
+    clearAll: "Clear All",
+    clearConfirm: "Are you sure you want to clear all items?",
   },
   he: {
     listTitle: "הרשימה שלי",
     addTodo: "הוסף רשומה חדשה",
     add: "הוסף",
     listTitlePlaceholder: "כותרת הרשימה",
+    clearAll: "נקה הכל",
+    clearConfirm: "האם אתה בטוח שברצונך למחוק את כל הפריטים?",
   },
 };
+
+const DEFAULT_CATEGORY = "📝"; // Add this after translations object
 
 interface Todo {
   id: number;
@@ -49,6 +56,7 @@ const storage = {
 
 const ListPage = () => {
   const params = useParams();
+  const { toast } = useToast();
 
   const storageKeys = {
     todos: `todos-${params.uuid}`,
@@ -114,26 +122,59 @@ const ListPage = () => {
     - 🧹 for household supplies`;
 
     const prediction = await getCompletion(prompt);
-    return prediction.trim();
+    // Add validation for the prediction
+    const trimmed = prediction.trim();
+    if (trimmed.length > 2 || !trimmed.match(/\p{Emoji}/u)) {
+      return DEFAULT_CATEGORY;
+    }
+    return trimmed;
   };
 
-  const extractItems = async (text: string) => {
-    const prompt = `Extract individual items from this text. Return them as a JSON array of strings.
-    Examples:
-    Input: "milk, bread and eggs"
-    Output: ["milk", "bread", "eggs"]
-    
-    Input: "I need tomatoes also get some milk"
-    Output: ["tomatoes", "milk"]
-    
-    Now extract from this text: "${text}"`;
+  const getCurrentItems = () => {
+    return todos.map((todo) => todo.text).join(", ");
+  };
+
+  const extractItems = async (text: string, listTitle: string) => {
+    const currentItems = getCurrentItems();
+    const prompt = `Create a list of individual items from this text, considering this is a list titled "${listTitle}". If the text includes phrases like "add more items" or "add to the list", suggest relevant items that fit the list title and aren't already in the list. Return result as a JSON array of strings.
+
+Current list items: ${currentItems}
+
+Examples:
+Input: "milk, bread and eggs" (list: "Groceries", empty list)
+Output: ["milk", "bread", "eggs"]
+
+Input: "add more items" (list: "Groceries", current: milk, bread)
+Output: ["eggs", "cheese", "butter"]
+
+Input: "add more" (list: "Office Supplies", current: paper, pens)
+Output: ["stapler", "sticky notes", "paper clips"]
+
+Create a list of items based on the following text: "${text}"
+
+Your answer should include ONLY a valid JSON array of strings in the same language as the title and other items.`;
 
     const result = await getCompletion(prompt);
     try {
       return JSON.parse(result) as string[];
-    } catch (error) {
-      console.error("Failed to parse items:", error);
-      return [text];
+    } catch {
+      toast({
+        title: "Invalid response format",
+        description: (
+          <div className="mt-2">
+            <p className="mb-2">
+              I couldn&apos;t parse the response as JSON. Here&apos;s what I
+              received:
+            </p>
+            <pre className="bg-secondary p-2 rounded-md text-xs overflow-auto whitespace-pre-wrap">
+              {result}
+            </pre>
+          </div>
+        ),
+        variant: "destructive",
+        duration: Infinity, // Keep toast open indefinitely
+      });
+      throw new Error("JSON parse failed");
     }
   };
 
@@ -143,7 +184,7 @@ const ListPage = () => {
 
     setIsLoading(true);
     try {
-      const items = await extractItems(newTodo);
+      const items = await extractItems(newTodo, listTitle);
       const newTodos = await Promise.all(
         items.map(async (item) => {
           const categoryPrediction = await predictCategory(item, listTitle);
@@ -151,7 +192,7 @@ const ListPage = () => {
             id: Date.now() + Math.random(),
             text: item,
             done: false,
-            category: categoryPrediction,
+            category: categoryPrediction || DEFAULT_CATEGORY, // Use default if prediction fails
           };
         })
       );
@@ -159,6 +200,10 @@ const ListPage = () => {
       setNewTodo("");
     } catch (error) {
       console.error("Failed to process items:", error);
+      // Don't clear the input on parse error so user can try again
+      if (!(error instanceof Error && error.message === "JSON parse failed")) {
+        setNewTodo("");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -180,6 +225,12 @@ const ListPage = () => {
     setTodos(
       todos.map((todo) => (todo.id === id ? { ...todo, text: newText } : todo))
     );
+  };
+
+  const clearAllTodos = () => {
+    if (window.confirm(translations[language].clearConfirm)) {
+      setTodos([]);
+    }
   };
 
   if (isInitializing) {
@@ -205,6 +256,16 @@ const ListPage = () => {
             placeholder={translations[language].listTitlePlaceholder}
             dir={language === "he" ? "rtl" : "ltr"}
           />
+          {todos.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearAllTodos}
+              className="text-gray-400 hover:text-red-500 hover:bg-red-50"
+            >
+              {translations[language].clearAll}
+            </Button>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto">
           <ul className="space-y-2" dir={language === "he" ? "rtl" : "ltr"}>
