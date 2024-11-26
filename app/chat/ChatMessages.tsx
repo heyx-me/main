@@ -22,6 +22,6 @@ export function ChatMessages() {
   );
 }
 
-type Content = {
+export type Content = {
   text: string;
 };
