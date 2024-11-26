@@ -70,7 +70,7 @@ const ListPage = observer(() => {
   const getListTitle = useCallback(() => {
     const lists = store$.lists.get();
     return lists?.find(({ id }) => id === params.uuid)?.title || "";
-  }, [params.uuid, storageKeys.globalLists]);
+  }, [params.uuid]);
 
   const updateListTitle = useCallback(
     (title: string) => {
@@ -78,16 +78,17 @@ const ListPage = observer(() => {
       const listIndex = lists?.findIndex(({ id }) => id === params.uuid);
       if (listIndex === -1 || typeof listIndex === "undefined") return;
       setListTitle(title);
-      
-        store$.set({ lists: lists.map((list, index) => {
-            if (index === listIndex) {
-                return { ...list, title };
-            }
-            return list;
-        })
-        });
+
+      store$.set({
+        lists: lists.map((list, index) => {
+          if (index === listIndex) {
+            return { ...list, title };
+          }
+          return list;
+        }),
+      });
     },
-    [params.uuid, storageKeys.globalLists]
+    [params.uuid]
   );
 
   const { language } = useLanguage();
@@ -99,7 +100,7 @@ const ListPage = observer(() => {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [directInputId, setDirectInputId] = useState<number | null>(null);
-  const [directInputValue, setDirectInputValue] = useState('');  // Add this state
+  const [directInputValue, setDirectInputValue] = useState(""); // Add this state
 
   // Combine initialization effects
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -217,32 +218,37 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
   };
 
   const handleDirectInput = (text: string) => {
-    setDirectInputValue(text);  // Update input value state
+    setDirectInputValue(text); // Update input value state
     if (!directInputId && text) {
       // Create new todo on first keystroke
       const newId = Date.now() + Math.random();
       setDirectInputId(newId);
-      setTodos(prev => [...prev, {
-        id: newId,
-        text,
-        done: false,
-        category: DEFAULT_CATEGORY
-      }]);
+      setTodos((prev) => [
+        ...prev,
+        {
+          id: newId,
+          text,
+          done: false,
+          category: DEFAULT_CATEGORY,
+        },
+      ]);
     } else if (directInputId) {
       // Update existing todo
-      setTodos(prev => prev.map(todo =>
-        todo.id === directInputId ? { ...todo, text } : todo
-      ));
+      setTodos((prev) =>
+        prev.map((todo) =>
+          todo.id === directInputId ? { ...todo, text } : todo
+        )
+      );
     }
   };
 
   const finishDirectInput = () => {
-    if (directInputValue.trim() === '') {
+    if (directInputValue.trim() === "") {
       // Remove empty todos
-      setTodos(prev => prev.filter(todo => todo.id !== directInputId));
+      setTodos((prev) => prev.filter((todo) => todo.id !== directInputId));
     }
     setDirectInputId(null);
-    setDirectInputValue('');  // Reset input value
+    setDirectInputValue(""); // Reset input value
   };
 
   const removeTodo = (id: number) => {
@@ -369,20 +375,26 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
           </ul>
           {/* Add direct input below list */}
           <div className="flex items-center gap-2 mt-2">
-            <Checkbox disabled checked={false} style={{ visibility: 'hidden' }}/>
+            <Checkbox
+              disabled
+              checked={false}
+              style={{ visibility: "hidden" }}
+            />
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm whitespace-nowrap">{DEFAULT_CATEGORY}</span>
+                <span className="text-sm whitespace-nowrap">
+                  {DEFAULT_CATEGORY}
+                </span>
                 <Input
                   type="text"
                   className="flex-1"
                   dir={language === "he" ? "rtl" : "ltr"}
                   placeholder={translations[language].addTodo}
-                  value={directInputValue}  // Use controlled input value
+                  value={directInputValue} // Use controlled input value
                   onChange={(e) => handleDirectInput(e.target.value)}
                   onBlur={() => finishDirectInput()}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === "Enter") {
                       finishDirectInput();
                     }
                   }}
@@ -411,8 +423,8 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
             dir={language === "he" ? "rtl" : "ltr"}
             className="pr-12 rounded-full bg-muted/40" // Add these classes
           />
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             size="icon"
             variant="ghost"
             disabled={isLoading}

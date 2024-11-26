@@ -2,12 +2,12 @@
 
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/language-provider";
+import { observer } from "@legendapp/state/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Languages, Loader2, PlusCircle, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { ListInfo, state$, store$ } from "./store";
-import { observer, useSelector } from "@legendapp/state/react";
 import React, { useEffect } from "react";
+import { ListInfo, store$ } from "./store";
 
 const translations = {
   en: {
@@ -40,7 +40,7 @@ const ListsPage = observer(() => {
       createdAt: Date.now(),
     };
     store$.set({
-      lists: [...(lists || []), newList]
+      lists: [...(lists || []), newList],
     });
     setLists((prev) => [...(prev || []), newList]);
     router.push(`/list/${newList.id}`);
@@ -48,14 +48,14 @@ const ListsPage = observer(() => {
 
   const deleteList = (id: string) => {
     store$.set({
-      lists: lists.filter((list) => list.id !== id)
+      lists: lists.filter((list) => list.id !== id),
     });
     setLists((prev) => prev.filter((list) => list.id !== id));
   };
 
   useEffect(() => {
     setIsInitializing(false);
-  }, [])
+  }, []);
 
   if (isInitializing) {
     return (
@@ -128,6 +128,6 @@ const ListsPage = observer(() => {
       </div>
     </div>
   );
-})
+});
 
 export default ListsPage;
