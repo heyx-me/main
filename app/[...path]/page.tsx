@@ -13,7 +13,7 @@ export default async function page({ params }: { params: Promise<{ path: string 
         notFound()
     }
 
-    const { type } = app.init[0]
+    const { type } = { type: '' } // app.init[0]
 
     const Component = type && dynamic(() => import(`@/app/${type.toLowerCase()}/${type}.tsx`));
 

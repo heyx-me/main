@@ -3,13 +3,15 @@
 import type React from "react";
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, Loader2 } from "lucide-react";
+import { Trash2, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useParams } from "next/navigation";
-import type { ListInfo } from "../page";
 import { useToast } from "@/hooks/use-toast";
+import { store$, type ListInfo } from "../store";
+import { useLanguage } from "@/lib/language-provider";
+import { observer } from "@legendapp/state/react";
 
 const translations = {
   en: {
@@ -19,6 +21,7 @@ const translations = {
     listTitlePlaceholder: "List Title",
     clearAll: "Clear All",
     clearConfirm: "Are you sure you want to clear all items?",
+    askAssistant: "Ask me to add items or help organize your list...",
   },
   he: {
     listTitle: "הרשימה שלי",
@@ -27,6 +30,7 @@ const translations = {
     listTitlePlaceholder: "כותרת הרשימה",
     clearAll: "נקה הכל",
     clearConfirm: "האם אתה בטוח שברצונך למחוק את כל הפריטים?",
+    askAssistant: "בקש ממני להוסיף פריטים או לעזור לארגן את הרשימה שלך...",
   },
 };
 
@@ -54,7 +58,7 @@ const storage = {
   },
 };
 
-const ListPage = () => {
+const ListPage = observer(() => {
   const params = useParams();
   const { toast } = useToast();
 
@@ -64,11 +68,29 @@ const ListPage = () => {
   };
 
   const getListTitle = useCallback(() => {
-    const lists = storage.get<ListInfo[]>(storageKeys.globalLists, []);
-    return lists.find(({ id }) => id === params.uuid)?.title || "";
+    const lists = store$.lists.get();
+    return lists?.find(({ id }) => id === params.uuid)?.title || "";
   }, [params.uuid, storageKeys.globalLists]);
 
-  const [language, setLanguage] = useState<"en" | "he">("en");
+  const updateListTitle = useCallback(
+    (title: string) => {
+      const lists = store$.lists.get();
+      const listIndex = lists?.findIndex(({ id }) => id === params.uuid);
+      if (listIndex === -1 || typeof listIndex === "undefined") return;
+      setListTitle(title);
+      
+        store$.set({ lists: lists.map((list, index) => {
+            if (index === listIndex) {
+                return { ...list, title };
+            }
+            return list;
+        })
+        });
+    },
+    [params.uuid, storageKeys.globalLists]
+  );
+
+  const { language } = useLanguage();
   const [todos, setTodos] = useState<Todo[]>(
     storage.get(storageKeys.todos, [])
   );
@@ -76,32 +98,17 @@ const ListPage = () => {
   const [listTitle, setListTitle] = useState(getListTitle());
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
-
-  // Add effect for language initialization
-  useEffect(() => {
-    const storedLanguage = localStorage.getItem("language") as "en" | "he";
-    setLanguage(storedLanguage || "en");
-  }, []);
+  const [directInputId, setDirectInputId] = useState<number | null>(null);
+  const [directInputValue, setDirectInputValue] = useState('');  // Add this state
 
   // Combine initialization effects
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
     if (typeof window !== "undefined") {
       setTodos(storage.get(storageKeys.todos, []));
-      setListTitle(getListTitle());
       setIsInitializing(false);
     }
-  }, [getListTitle, params.uuid, storageKeys.todos]);
-
-  // Update the global lists storage when title changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(() => {
-    const lists = storage.get<ListInfo[]>(storageKeys.globalLists, []);
-    const listIndex = lists.findIndex(({ id }) => id === params.uuid);
-    if (listIndex === -1) return;
-    lists[listIndex].title = listTitle;
-    storage.set(storageKeys.globalLists, lists);
-  }, [listTitle, params.uuid, storageKeys.globalLists]);
+  }, [params.uuid, storageKeys.todos]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(
@@ -209,6 +216,35 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
     }
   };
 
+  const handleDirectInput = (text: string) => {
+    setDirectInputValue(text);  // Update input value state
+    if (!directInputId && text) {
+      // Create new todo on first keystroke
+      const newId = Date.now() + Math.random();
+      setDirectInputId(newId);
+      setTodos(prev => [...prev, {
+        id: newId,
+        text,
+        done: false,
+        category: DEFAULT_CATEGORY
+      }]);
+    } else if (directInputId) {
+      // Update existing todo
+      setTodos(prev => prev.map(todo =>
+        todo.id === directInputId ? { ...todo, text } : todo
+      ));
+    }
+  };
+
+  const finishDirectInput = () => {
+    if (directInputValue.trim() === '') {
+      // Remove empty todos
+      setTodos(prev => prev.filter(todo => todo.id !== directInputId));
+    }
+    setDirectInputId(null);
+    setDirectInputValue('');  // Reset input value
+  };
+
   const removeTodo = (id: number) => {
     setTodos(todos.filter((todo) => todo.id !== id));
   };
@@ -251,7 +287,7 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
           <Input
             type="text"
             value={listTitle}
-            onChange={(e) => setListTitle(e.target.value)}
+            onChange={(e) => updateListTitle(e.target.value)}
             className="text-xl font-semibold bg-transparent border-none focus-visible:ring-0 p-0"
             placeholder={translations[language].listTitlePlaceholder}
             dir={language === "he" ? "rtl" : "ltr"}
@@ -331,42 +367,68 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
                 ))}
             </AnimatePresence>
           </ul>
+          {/* Add direct input below list */}
+          <div className="flex items-center gap-2 mt-2">
+            <Checkbox disabled checked={false} style={{ visibility: 'hidden' }}/>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm whitespace-nowrap">{DEFAULT_CATEGORY}</span>
+                <Input
+                  type="text"
+                  className="flex-1"
+                  dir={language === "he" ? "rtl" : "ltr"}
+                  placeholder={translations[language].addTodo}
+                  value={directInputValue}  // Use controlled input value
+                  onChange={(e) => handleDirectInput(e.target.value)}
+                  onBlur={() => finishDirectInput()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      finishDirectInput();
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <div className="w-9" /> {/* Spacer for alignment */}
+          </div>
         </div>
 
         <form
           onSubmit={addTodo}
-          className="flex gap-2 mt-4"
+          className="flex mt-4 relative"
           dir={language === "he" ? "rtl" : "ltr"}
         >
-          <div className="flex-1">
-            <label htmlFor="newTodo" className="sr-only">
-              {translations[language].addTodo}
-            </label>
-            <Input
-              id="newTodo"
-              type="text"
-              value={newTodo}
-              onChange={(e) => setNewTodo(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addTodo()}
-              placeholder={translations[language].addTodo}
-              autoComplete="off"
-              aria-label={translations[language].addTodo}
-              disabled={isLoading}
-              dir={language === "he" ? "rtl" : "ltr"}
-            />
-          </div>
-          <Button type="submit" disabled={isLoading}>
+          <Input
+            id="newTodo"
+            type="text"
+            value={newTodo}
+            onChange={(e) => setNewTodo(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addTodo()}
+            placeholder={translations[language].askAssistant}
+            autoComplete="off"
+            aria-label={translations[language].askAssistant}
+            disabled={isLoading}
+            dir={language === "he" ? "rtl" : "ltr"}
+            className="pr-12 rounded-full bg-muted/40" // Add these classes
+          />
+          <Button 
+            type="submit" 
+            size="icon"
+            variant="ghost"
+            disabled={isLoading}
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-transparent"
+          >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              translations[language].add
+              <Send className="h-4 w-4" />
             )}
           </Button>
         </form>
       </div>
     </div>
   );
-};
+});
 
 function getCompletion(prompt: string) {
   return fetch("/api/completion", {

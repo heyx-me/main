@@ -1,16 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { PlusCircle, Trash2, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
-
-export interface ListInfo {
-  id: string;
-  title: string;
-  createdAt: number;
-}
+import { useLanguage } from "@/lib/language-provider";
+import { AnimatePresence, motion } from "framer-motion";
+import { Languages, Loader2, PlusCircle, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ListInfo, state$, store$ } from "./store";
+import { observer, useSelector } from "@legendapp/state/react";
+import React, { useEffect } from "react";
 
 const translations = {
   en: {
@@ -25,36 +22,16 @@ const translations = {
   },
 };
 
-const ListsPage = () => {
+const ListsPage = observer(() => {
   const router = useRouter();
-  const [lists, setLists] = useState<ListInfo[]>([]);
-  const isInitialized = useRef(false);
-  const [language, setLanguage] = useState<"en" | "he">("en");
+  const [isInitializing, setIsInitializing] = React.useState(true);
+  const [lists, setLists] = React.useState<ListInfo[]>(store$.lists.get());
+  const { language, setLanguage } = useLanguage();
 
-  useEffect(() => {
-    if (!isInitialized.current) {
-      const storedLists = localStorage.getItem("lists");
-      const storedLanguage = localStorage.getItem("language");
-      if (storedLists) {
-        try {
-          const parsedLists = JSON.parse(storedLists);
-          setLists(parsedLists);
-        } catch (error) {
-          console.error("Error parsing stored lists:", error);
-        }
-      }
-      if (storedLanguage) {
-        setLanguage(storedLanguage as "en" | "he");
-      }
-      isInitialized.current = true;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isInitialized.current) {
-      localStorage.setItem("language", language);
-    }
-  }, [language]);
+  const toggleLanguage = async () => {
+    const newLanguage = language === "en" ? "he" : "en";
+    setLanguage(newLanguage);
+  };
 
   const createNewList = () => {
     const newList: ListInfo = {
@@ -62,20 +39,34 @@ const ListsPage = () => {
       title: "",
       createdAt: Date.now(),
     };
-    setLists((prev) => [...prev, newList]);
-    localStorage.setItem("lists", JSON.stringify([...lists, newList]));
+    store$.set({
+      lists: [...(lists || []), newList]
+    });
+    setLists((prev) => [...(prev || []), newList]);
     router.push(`/list/${newList.id}`);
   };
 
   const deleteList = (id: string) => {
+    store$.set({
+      lists: lists.filter((list) => list.id !== id)
+    });
     setLists((prev) => prev.filter((list) => list.id !== id));
-    localStorage.setItem(
-      "lists",
-      JSON.stringify(lists.filter((list) => list.id !== id))
-    );
-    // Clean up associated list data
-    localStorage.removeItem(`todos-${id}`);
   };
+
+  useEffect(() => {
+    setIsInitializing(false);
+  }, [])
+
+  if (isInitializing) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-sm text-muted-foreground">Loading your lists...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -88,13 +79,7 @@ const ListsPage = () => {
             {translations[language].myLists}
           </h1>
           <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() =>
-                setLanguage((lang) => (lang === "en" ? "he" : "en"))
-              }
-            >
+            <Button variant="ghost" size="icon" onClick={toggleLanguage}>
               <Languages className="h-4 w-4" />
             </Button>
             <Button onClick={createNewList}>
@@ -106,7 +91,7 @@ const ListsPage = () => {
 
         <div className="grid gap-4">
           <AnimatePresence initial={false}>
-            {lists.map((list) => (
+            {lists?.map((list) => (
               <motion.div
                 key={list.id}
                 layout
@@ -143,6 +128,6 @@ const ListsPage = () => {
       </div>
     </div>
   );
-};
+})
 
 export default ListsPage;

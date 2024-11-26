@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.72",
+    "@legendapp/state": "^3.0.0-beta.19",
     "@radix-ui/react-checkbox": "^1.1.2",
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-toast": "^1.2.2",
@@ -34,6 +35,7 @@
     "eslint": "^8",
     "eslint-config-next": "15.0.2",
     "postcss": "^8",
+    "supabase": "^1.223.10",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }

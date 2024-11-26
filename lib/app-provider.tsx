@@ -4,6 +4,7 @@ import * as React from "react";
 import { supabase } from "./supabase";
 import { create, useStore, type StoreApi, type UseBoundStore } from "zustand";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { Database } from "./database.types";
 
 const appContext = React.createContext<UseBoundStore<StoreApi<AppState & AppActions>> | null>(null);
 
@@ -24,6 +25,10 @@ export function AppProvider({
 	return <appContext.Provider value={store}>{children}</appContext.Provider>;
 }
 
+
+export type Message = Database['public']['Tables']['messages']['Row'];
+
+
 type AppState = {
 	app?: Application;
 	messages?: Message[] | null;
@@ -34,14 +39,8 @@ type AppActions = {
 	subscribeToMessages: () => RealtimeChannel;
 }
 
-export type Message = {
-	content: {
-		text: string;
-	}[];
-};
-
 export type Application = {
-	id: number;
+	id: string;
 };
 
 export function createStore(state?: AppState) {
@@ -50,6 +49,8 @@ export function createStore(state?: AppState) {
 			...state,
 			addMessage: (text: string) => {
 				const newMessage = {
+					id: crypto.randomUUID(),
+					created_at: Date.now().toString(),
 					app_id: state?.app?.id || null,
 					content: [{ text }],
 				};
@@ -72,6 +73,9 @@ export function createStore(state?: AppState) {
 								messages: [
 									...(state.messages || []),
 									{
+										id: crypto.randomUUID(),
+										created_at: Date.now().toString(),
+										app_id: state?.app?.id || null,
 										content: [{ text: json.text }],
 									},
 								],
