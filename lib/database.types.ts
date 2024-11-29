@@ -1,10 +1,4 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type Json = unknown
 
 export type Database = {
   public: {
@@ -29,29 +23,24 @@ export type Database = {
           app_id: string | null
           content: Json | null
           created_at: string
+          deleted: boolean | null
           id: string
         }
         Insert: {
           app_id?: string | null
           content?: Json | null
           created_at?: string
+          deleted?: boolean | null
           id?: string
         }
         Update: {
           app_id?: string | null
           content?: Json | null
           created_at?: string
+          deleted?: boolean | null
           id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "messages_app_id_fkey"
-            columns: ["app_id"]
-            isOneToOne: false
-            referencedRelation: "apps"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {

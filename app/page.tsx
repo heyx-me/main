@@ -11,7 +11,8 @@ export default async function Home() {
             id: randomUUID(),
             app_id: null,
             created_at: new Date().toISOString(),
-            content: [{ text: "Hey, world!" }],
+            content: [{ text: "Hey!" }],
+            deleted: false,
           },
         ],
       }}

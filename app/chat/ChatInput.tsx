@@ -7,41 +7,42 @@ import { useState } from "react";
 import { useAppContext } from "@/lib/app-provider";
 
 export function ChatInput() {
-	const { addMessage } = useAppContext();
+  const { addMessage } = useAppContext();
 
-	const [text, setText] = useState("");
+  const [text, setText] = useState("");
 
-	return (
-		<div className="flex gap-2 w-full">
-			<Input
-				value={text}
-				name="input"
-				autoComplete="off"
-				placeholder="Write something..."
-				className="w-full"
-				onChange={(e) => setText(e.target.value)}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" && text) {
-						handleSend()
-					}
-				}}
-			/>
-			<div>
-				<Button
-					size="icon"
-					disabled={!text}
-					onClick={() => {
-						handleSend()
-					}}
-				>
-					<SendIcon />
-				</Button>
-			</div>
-		</div>
-	);
+  return (
+    <div className="flex w-full relative">
+      <Input
+        value={text}
+        name="input"
+        autoComplete="off"
+        className="w-full pr-12 rounded-full bg-muted/40"
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && text) {
+            handleSend();
+          }
+        }}
+      />
+      <div>
+        <Button
+          size="icon"
+          variant="ghost"
+          disabled={!text}
+          onClick={() => {
+            handleSend();
+          }}
+          className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+        >
+          <SendIcon className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
 
-	function handleSend() {
-		addMessage(text);
-		setText("");
-	}
+  function handleSend() {
+    addMessage(text);
+    setText("");
+  }
 }

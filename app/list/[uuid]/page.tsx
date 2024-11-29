@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trash2, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { store$, type ListInfo } from "../store";
+import { generateId, getItems, store$ } from "../store";
 import { useLanguage } from "@/lib/language-provider";
 import { observer } from "@legendapp/state/react";
 
@@ -21,7 +21,7 @@ const translations = {
     listTitlePlaceholder: "List Title",
     clearAll: "Clear All",
     clearConfirm: "Are you sure you want to clear all items?",
-    askAssistant: "Ask me to add items or help organize your list...",
+    askAssistant: "",
   },
   he: {
     listTitle: "הרשימה שלי",
@@ -30,42 +30,63 @@ const translations = {
     listTitlePlaceholder: "כותרת הרשימה",
     clearAll: "נקה הכל",
     clearConfirm: "האם אתה בטוח שברצונך למחוק את כל הפריטים?",
-    askAssistant: "בקש ממני להוסיף פריטים או לעזור לארגן את הרשימה שלך...",
+    askAssistant: "",
   },
 };
 
 const DEFAULT_CATEGORY = "📝"; // Add this after translations object
 
 interface Todo {
-  id: number;
+  id: string;
   text: string;
   done: boolean;
   category: string;
 }
 
-type StorageValue = Todo[] | ListInfo[] | string;
+// type StorageValue = Todo[] | ListInfo[] | string;
 
-const storage = {
-  get: <T extends StorageValue>(key: string, defaultValue: T): T => {
-    if (typeof window === "undefined") return defaultValue;
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultValue;
-  },
-  set: (key: string, value: StorageValue): void => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(key, JSON.stringify(value));
-    }
-  },
-};
+// const storage = {
+//   get: <T extends StorageValue>(key: string, defaultValue: T): T => {
+//     if (typeof window === "undefined") return defaultValue;
+//     const stored = localStorage.getItem(key);
+//     return stored ? JSON.parse(stored) : defaultValue;
+//   },
+//   set: (key: string, value: StorageValue): void => {
+//     if (typeof window !== "undefined") {
+//       localStorage.setItem(key, JSON.stringify(value));
+//     }
+//   },
+// };
 
 const ListPage = observer(() => {
   const params = useParams();
   const { toast } = useToast();
 
-  const storageKeys = {
-    todos: `todos-${params.uuid}`,
-    globalLists: "lists",
-  };
+  const app_id = params.uuid as string;
+
+  // const storageKeys = {
+  //   todos: `todos-${params.uuid}`,
+  //   globalLists: "lists",
+  // };
+
+  const items$ = useMemo(() => getItems(params.uuid as string), [params.uuid]);
+
+  const items = Object.values(items$.get() || {}) as {
+    id: string;
+    content: Todo;
+  }[];
+
+  useEffect(() => {
+    if (!params.uuid) return;
+    const list = store$.lists.get().find(({ id }) => id === params.uuid);
+    if (list) return;
+    store$.set({
+      lists: [
+        ...store$.lists.get(),
+        { id: params.uuid as string, title: "", createdAt: Date.now() },
+      ],
+    });
+  }, [params.uuid]);
 
   const getListTitle = useCallback(() => {
     const lists = store$.lists.get();
@@ -92,30 +113,30 @@ const ListPage = observer(() => {
   );
 
   const { language } = useLanguage();
-  const [todos, setTodos] = useState<Todo[]>(
-    storage.get(storageKeys.todos, [])
-  );
+  // const [todos, setTodos] = useState<Todo[]>(
+  //   storage.get(storageKeys.todos, [])
+  // );
   const [newTodo, setNewTodo] = useState("");
   const [listTitle, setListTitle] = useState(getListTitle());
   const [isLoading, setIsLoading] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
-  const [directInputId, setDirectInputId] = useState<number | null>(null);
+  // const [isInitializing, setIsInitializing] = useState(true);
+  const [directInputId, setDirectInputId] = useState<string | null>(null);
   const [directInputValue, setDirectInputValue] = useState(""); // Add this state
 
   // Combine initialization effects
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setTodos(storage.get(storageKeys.todos, []));
-      setIsInitializing(false);
-    }
-  }, [params.uuid, storageKeys.todos]);
+  // useEffect(() => {
+  //   if (typeof window !== "undefined") {
+  //     setTodos(storage.get(storageKeys.todos, []));
+  //     setIsInitializing(false);
+  //   }
+  // }, [params.uuid, storageKeys.todos]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(
-    () => storage.set(storageKeys.todos, todos),
-    [todos, params.uuid, storageKeys.todos]
-  );
+  // useEffect(
+  //   () => storage.set(storageKeys.todos, todos),
+  //   [todos, params.uuid, storageKeys.todos]
+  // );
 
   const predictCategory = async (text: string, listTitle: string) => {
     const prompt = `Based on the todo list title "${listTitle}", categorize this item: "${text}".
@@ -139,7 +160,9 @@ const ListPage = observer(() => {
   };
 
   const getCurrentItems = () => {
-    return todos.map((todo) => todo.text).join(", ");
+    return Object.values(items$.get())
+      .map((todo) => (todo.content as { text: string }).text)
+      .join(", ");
   };
 
   const extractItems = async (text: string, listTitle: string) => {
@@ -197,14 +220,27 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
         items.map(async (item) => {
           const categoryPrediction = await predictCategory(item, listTitle);
           return {
-            id: Date.now() + Math.random(),
+            id: generateId(),
             text: item,
             done: false,
             category: categoryPrediction || DEFAULT_CATEGORY, // Use default if prediction fails
           };
         })
       );
-      setTodos((prevTodos) => [...prevTodos, ...newTodos]);
+      // setTodos((prevTodos) => [...prevTodos, ...newTodos]);
+
+      newTodos.forEach((todo) => {
+        items$[todo.id].assign({
+          id: todo.id,
+          app_id,
+          content: {
+            text: todo.text,
+            done: todo.done,
+            category: todo.category,
+          },
+        });
+      });
+
       setNewTodo("");
     } catch (error) {
       console.error("Failed to process items:", error);
@@ -221,70 +257,101 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
     setDirectInputValue(text); // Update input value state
     if (!directInputId && text) {
       // Create new todo on first keystroke
-      const newId = Date.now() + Math.random();
+      const newId = generateId();
       setDirectInputId(newId);
-      setTodos((prev) => [
-        ...prev,
-        {
-          id: newId,
+      // setTodos((prev) => [
+      //   ...prev,
+      //   {
+      //     id: newId,
+      //     text,
+      //     done: false,
+      //     category: DEFAULT_CATEGORY,
+      //   },
+      // ]);
+
+      items$[newId].assign({
+        id: newId,
+        app_id,
+        content: {
           text,
           done: false,
           category: DEFAULT_CATEGORY,
         },
-      ]);
+      });
     } else if (directInputId) {
       // Update existing todo
-      setTodos((prev) =>
-        prev.map((todo) =>
-          todo.id === directInputId ? { ...todo, text } : todo
-        )
-      );
+      // setTodos((prev) =>
+      //   prev.map((todo) =>
+      //     todo.id === directInputId ? { ...todo, text } : todo
+      //   )
+      // );
+
+      items$[directInputId].assign({
+        content: {
+          ...items$[directInputId].content.get(),
+          text,
+        },
+      });
     }
   };
 
   const finishDirectInput = () => {
     if (directInputValue.trim() === "") {
       // Remove empty todos
-      setTodos((prev) => prev.filter((todo) => todo.id !== directInputId));
+      // setTodos((prev) => prev.filter((todo) => todo.id !== directInputId));
+
+      if (!directInputId) return;
+      items$[directInputId].delete();
     }
     setDirectInputId(null);
     setDirectInputValue(""); // Reset input value
   };
 
-  const removeTodo = (id: number) => {
-    setTodos(todos.filter((todo) => todo.id !== id));
+  const removeTodo = (id: string) => {
+    // setTodos(todos.filter((todo) => todo.id !== id));
+
+    items$[id].delete();
   };
 
-  const toggleTodo = (id: number) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, done: !todo.done } : todo
-      )
-    );
+  const toggleTodo = (id: string) => {
+    // setTodos(
+    //   todos.map((todo) =>
+    //     todo.id === id ? { ...todo, done: !todo.done } : todo
+    //   )
+    // );
+
+    items$[id].content.assign({
+      done: !items$[id].content.get,
+    });
   };
 
-  const editTodo = (id: number, newText: string) => {
-    setTodos(
-      todos.map((todo) => (todo.id === id ? { ...todo, text: newText } : todo))
-    );
+  const editTodo = (id: string, newText: string) => {
+    // setTodos(
+    //   todos.map((todo) => (todo.id === id ? { ...todo, text: newText } : todo))
+    // );
+
+    items$[id].content.assign({
+      text: newText,
+    });
   };
 
   const clearAllTodos = () => {
     if (window.confirm(translations[language].clearConfirm)) {
-      setTodos([]);
+      // setTodos([]);
+      items.forEach((item) => items$[item.id].delete());
     }
   };
 
-  if (isInitializing) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <p className="text-sm text-muted-foreground">Loading your list...</p>
-        </div>
-      </div>
-    );
-  }
+  // if (isInitializing) {
+  //   return (
+  //     <div className="h-full flex items-center justify-center">
+  //       <div className="flex flex-col items-center gap-2">
+  //         <Loader2 className="h-8 w-8 animate-spin" />
+  //         <p className="text-sm text-muted-foreground">Loading your list...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="h-full flex flex-col items-center justify-center p-3">
@@ -298,7 +365,7 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
             placeholder={translations[language].listTitlePlaceholder}
             dir={language === "he" ? "rtl" : "ltr"}
           />
-          {todos.length > 0 && (
+          {items.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
@@ -312,11 +379,12 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
         <div className="flex-1 overflow-y-auto">
           <ul className="space-y-2" dir={language === "he" ? "rtl" : "ltr"}>
             <AnimatePresence initial={false}>
-              {[...todos]
+              {[...items]
                 .sort((a, b) => {
-                  if (a.done === b.done) return 0;
-                  if (a.done !== b.done) return a.done ? 1 : -1;
-                  return a.category.localeCompare(b.category);
+                  if (a.content.done === b.content.done) return 0;
+                  if (a.content.done !== b.content.done)
+                    return a.content.done ? 1 : -1;
+                  return a.content.category.localeCompare(b.content.category);
                 })
                 .map((todo) => (
                   <motion.li
@@ -336,24 +404,26 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
                   >
                     <div className={"flex items-center gap-2 w-full"}>
                       <Checkbox
-                        checked={todo.done}
+                        checked={todo.content.done}
                         onCheckedChange={() => toggleTodo(todo.id)}
                       />
                       <motion.div
-                        animate={{ scale: todo.done ? 0.98 : 1 }}
+                        animate={{ scale: todo.content.done ? 0.98 : 1 }}
                         className="flex-1"
                       >
                         <div
                           className={`flex items-center gap-2 ${
-                            todo.done ? "text-gray-400 line-through" : ""
+                            todo.content.done
+                              ? "text-gray-400 line-through"
+                              : ""
                           }`}
                         >
                           <span className="text-sm whitespace-nowrap">
-                            {todo.category}
+                            {todo.content.category}
                           </span>
                           <Input
                             type="text"
-                            value={todo.text}
+                            value={todo.content.text}
                             onChange={(e) => editTodo(todo.id, e.target.value)}
                             className="flex-1"
                             dir={language === "he" ? "rtl" : "ltr"}
@@ -427,7 +497,7 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
             type="submit"
             size="icon"
             variant="ghost"
-            disabled={isLoading}
+            disabled={isLoading || !newTodo}
             className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-transparent"
           >
             {isLoading ? (

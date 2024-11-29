@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "gen": "npx supabase gen types typescript --project-id dhhpdrhxbfuyvebwevhc --schema public > lib/database.types.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.72",
@@ -26,6 +27,7 @@
     "react-dom": "19.0.0-rc-02c0e824-20241028",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
+    "uuid": "^11.0.3",
     "zustand": "^5.0.1"
   },
   "devDependencies": {
