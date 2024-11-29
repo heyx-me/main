@@ -13,6 +13,21 @@ import { generateId, getItems, store$ } from "../store";
 import { useLanguage } from "@/lib/language-provider";
 import { observer } from "@legendapp/state/react";
 
+// Add custom debounce implementation before ListPage component
+function debounce<Args extends unknown[]>(
+  func: (...args: Args) => void,
+  wait: number
+): (...args: Args) => void {
+  let timeout: NodeJS.Timeout;
+
+  return (...args: Args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      func(...args);
+    }, wait);
+  };
+}
+
 const translations = {
   en: {
     listTitle: "My List",
@@ -122,6 +137,7 @@ const ListPage = observer(() => {
   // const [isInitializing, setIsInitializing] = useState(true);
   const [directInputId, setDirectInputId] = useState<string | null>(null);
   const [directInputValue, setDirectInputValue] = useState(""); // Add this state
+  const [isPredicting, setIsPredicting] = useState(false);
 
   // Combine initialization effects
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -253,21 +269,36 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
     }
   };
 
-  const handleDirectInput = (text: string) => {
-    setDirectInputValue(text); // Update input value state
+  const debouncedPredictCategory = useMemo(
+    () =>
+      debounce(async (text: string, listTitle: string, id: string) => {
+        try {
+          const categoryPrediction = await predictCategory(text, listTitle);
+          items$[id].content.assign({
+            category: categoryPrediction,
+          });
+        } catch (error) {
+          console.error("Failed to predict category:", error);
+        } finally {
+          setIsPredicting(false);
+        }
+      }, 1500),
+    [items$]
+  );
+
+  // Cancel debounced calls on unmount
+  useEffect(() => {
+    return () => {
+      // No need for .cancel() with our implementation
+      debouncedPredictCategory("", "", ""); // Call with empty values to clear timeout
+    };
+  }, [debouncedPredictCategory]);
+
+  const handleDirectInput = async (text: string) => {
+    setDirectInputValue(text);
     if (!directInputId && text) {
-      // Create new todo on first keystroke
       const newId = generateId();
       setDirectInputId(newId);
-      // setTodos((prev) => [
-      //   ...prev,
-      //   {
-      //     id: newId,
-      //     text,
-      //     done: false,
-      //     category: DEFAULT_CATEGORY,
-      //   },
-      // ]);
 
       items$[newId].assign({
         id: newId,
@@ -278,20 +309,19 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
           category: DEFAULT_CATEGORY,
         },
       });
-    } else if (directInputId) {
-      // Update existing todo
-      // setTodos((prev) =>
-      //   prev.map((todo) =>
-      //     todo.id === directInputId ? { ...todo, text } : todo
-      //   )
-      // );
 
+      setIsPredicting(true);
+      debouncedPredictCategory(text, listTitle, newId);
+    } else if (directInputId) {
       items$[directInputId].assign({
         content: {
           ...items$[directInputId].content.get(),
           text,
         },
       });
+
+      setIsPredicting(true);
+      debouncedPredictCategory(text, listTitle, directInputId);
     }
   };
 
@@ -453,7 +483,7 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-sm whitespace-nowrap">
-                  {DEFAULT_CATEGORY}
+                  {isPredicting ? "🔄" : DEFAULT_CATEGORY}
                 </span>
                 <Input
                   type="text"
