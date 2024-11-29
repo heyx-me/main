@@ -351,7 +351,7 @@ Your answer should include ONLY a valid JSON array of strings in the same langua
     // );
 
     items$[id].content.assign({
-      done: !items$[id].content.get,
+      done: !(items$[id].content.get() as Todo).done,
     });
   };
 
